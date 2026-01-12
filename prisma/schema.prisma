@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Memo {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  images    Json     @default("[]")
+  tags      String[]
+  date      DateTime
+  location  String?
+  tripId    String?
+  trip      Trip?    @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  imageAnalyses ImageAnalysis[]
+  storyMemos    StoryMemo[]
+
+  @@index([date])
+  @@index([tripId])
+}
+
+model Trip {
+  id         String   @id @default(cuid())
+  name       String
+  startDate  DateTime
+  endDate    DateTime
+  location   String
+  confidence Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  memos   Memo[]
+  stories Story[]
+
+  @@index([startDate, endDate])
+}
+
+model Story {
+  id               String    @id @default(cuid())
+  tripId           String?
+  trip             Trip?     @relation(fields: [tripId], references: [id], onDelete: SetNull)
+  title            String
+  subtitle         String?
+  template         Template  @default(CARD)
+  selectedPhotos   Json      @default("[]")
+  optimizedContent Json      @default("{}")
+  styleConfig      Json      @default("{}")
+  shareId          String    @unique
+  isPublic         Boolean   @default(false)
+  views            Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  publishedAt      DateTime?
+
+  storyMemos StoryMemo[]
+
+  @@index([shareId])
+  @@index([isPublic])
+}
+
+model StoryMemo {
+  id       String @id @default(cuid())
+  storyId  String
+  memoId   String
+  order    Int    @default(0)
+  story    Story  @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  memo     Memo   @relation(fields: [memoId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, memoId])
+  @@index([storyId])
+  @@index([memoId])
+}
+
+model ImageAnalysis {
+  id         String   @id @default(cuid())
+  imageUrl   String   @unique
+  memoId     String?
+  memo       Memo?    @relation(fields: [memoId], references: [id], onDelete: SetNull)
+  aiAnalysis Json
+  analyzedAt DateTime @default(now())
+  expiresAt  DateTime
+
+  @@index([imageUrl])
+  @@index([memoId])
+}
+
+enum Template {
+  MAGAZINE
+  CARD
+  TIMELINE
+}
